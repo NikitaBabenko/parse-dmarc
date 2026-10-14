@@ -136,6 +136,10 @@ type Attachment struct {
 type FetchResult struct {
 	Reports    []Report
 	MessageIDs []uint32
+	// DeadletterIDs are the messages of the batch that carried no report at
+	// all. The Maildir intake moves them to the deadletter mailbox instead of
+	// cur/, so they are not fetched again as if nothing happened.
+	DeadletterIDs []uint32
 }
 
 // FetchDMARCReports fetches DMARC reports from the mailbox
@@ -282,6 +286,13 @@ func (c *Client) MoveMessages(messageIDs []uint32, destMailbox string) error {
 
 // maxNestDepth bounds recursion into forwarded/embedded messages.
 const maxNestDepth = 4
+
+// CollectAttachments walks a raw MIME message and returns the DMARC report
+// attachments in it. It is exported for the Maildir intake, which holds whole
+// messages on disk instead of an IMAP body.
+func CollectAttachments(log *zerolog.Logger, r io.Reader) []Attachment {
+	return (&Client{log: log}).collectAttachments(r, 0)
+}
 
 // collectAttachments walks a MIME message and returns DMARC report attachments,
 // descending into embedded messages (Google reports relayed through Exchange or

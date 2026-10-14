@@ -12,6 +12,10 @@
     "username": "your-email@gmail.com"
   },
   "log_level": "info",
+  "maildir": {
+    "path": "",
+    "deadletter_mailbox": "DEADLETTER"
+  },
   "server": {
     "host": "0.0.0.0",
     "port": 8080
