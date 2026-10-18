@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.2](https://github.com/dmarcguardhq/parse-dmarc/compare/v1.7.1...v1.7.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **api:** cap the reports pagination limit ([#221](https://github.com/dmarcguardhq/parse-dmarc/issues/221)) ([cf07c02](https://github.com/dmarcguardhq/parse-dmarc/commit/cf07c0206948d1cebf77b425db412a9570d0effd))
+* declare module path github.com/dmarcguardhq/parse-dmarc ([#219](https://github.com/dmarcguardhq/parse-dmarc/issues/219)) ([a081972](https://github.com/dmarcguardhq/parse-dmarc/commit/a081972a738c75a291291de833fe4802265f2d08)), closes [#218](https://github.com/dmarcguardhq/parse-dmarc/issues/218)
+
 ## [1.7.1](https://github.com/dmarcguardhq/parse-dmarc/compare/v1.7.0...v1.7.1) (2026-10-14)
 
 
