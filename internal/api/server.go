@@ -12,6 +12,7 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/rs/zerolog"
 
+	"github.com/dmarcguardhq/parse-dmarc/internal/httpauth"
 	"github.com/dmarcguardhq/parse-dmarc/internal/metrics"
 	"github.com/dmarcguardhq/parse-dmarc/internal/storage"
 )
@@ -37,8 +38,8 @@ func NewServer(store *storage.Storage, host string, port int, m *metrics.Metrics
 	}
 }
 
-// Start starts the HTTP server
-func (s *Server) Start(ctx context.Context) error {
+// handler builds the complete protected HTTP origin before opening a listener.
+func (s *Server) handler() (http.Handler, error) {
 	mux := http.NewServeMux()
 
 	// API routes
@@ -90,10 +91,28 @@ func (s *Server) Start(ctx context.Context) error {
 		handler = s.metrics.HTTPMiddleware(handler)
 	}
 	handler = s.corsMiddleware(handler)
+	// Auth is outermost, including OPTIONS, metrics and all static/API paths.
+	handler, err = httpauth.Wrap(handler)
+	if err != nil {
+		return nil, err
+	}
+	return handler, nil
+}
+
+// Start starts the HTTP server.
+func (s *Server) Start(ctx context.Context) error {
+	handler, err := s.handler()
+	if err != nil {
+		return err
+	}
 
 	server := &http.Server{
-		Addr:    s.addr,
-		Handler: handler,
+		Addr:              s.addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {

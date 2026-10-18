@@ -1,5 +1,9 @@
 # Parse DMARC
 
+[![Deploy to VibeNest](https://vibenest.net/deploy-to-vibenest.svg)](https://vibenest.net/deploy?repo=https://github.com/NikitaBabenko/parse-dmarc)
+
+**VibeNest deployment fork:** see [VIBENEST.md](VIBENEST.md) before deploying. This fork requires owner-supplied HTTP credentials for the dashboard, API and metrics. Guided configuration and Free-tier acceptance are pending; the badge is not an unattended one-click deployment or an upstream endorsement. Upstream installation examples below refer to upstream images, which do not include this fork's authentication.
+
 [![CI](https://img.shields.io/github/actions/workflow/status/dmarcguardhq/parse-dmarc/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/dmarcguardhq/parse-dmarc/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/dmarcguardhq/parse-dmarc?style=flat-square)](https://github.com/dmarcguardhq/parse-dmarc/releases)
 [![License](https://img.shields.io/github/license/dmarcguardhq/parse-dmarc?style=flat-square)](LICENSE)

@@ -35,6 +35,9 @@ COPY . .
 COPY --from=frontend-builder /build/frontend/dist ./internal/api/dist
 
 RUN --mount=type=cache,target=/go/pkg/mod \
+    GOMAXPROCS=1 go test -p 1 -count=1 -run 'TestOriginProtection|TestMissingOrInvalidCredentialsFailClosed|TestSeedOptInAndDoesNotOverwrite|TestSyntheticReportContent|TestVibeNest' ./internal/httpauth ./internal/pilot ./internal/api ./cmd/server
+
+RUN --mount=type=cache,target=/go/pkg/mod \
     go build -ldflags="-s -w -extldflags '-static' -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.date=${DATE} -X main.builtBy=${BUILT_BY}" -trimpath -o parse-dmarc . && \
     mkdir -p /data /tmp
 

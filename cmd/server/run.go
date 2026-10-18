@@ -17,6 +17,7 @@ import (
 	"github.com/dmarcguardhq/parse-dmarc/internal/maildir"
 	"github.com/dmarcguardhq/parse-dmarc/internal/metrics"
 	"github.com/dmarcguardhq/parse-dmarc/internal/parser"
+	"github.com/dmarcguardhq/parse-dmarc/internal/pilot"
 	"github.com/dmarcguardhq/parse-dmarc/internal/storage"
 )
 
@@ -36,6 +37,15 @@ func run(ctx context.Context, version, commit, date string) error {
 
 	// Reinitialize logger with config-derived level
 	log = logger.NewLogger(cfg.LogLevel, !cfg.ColoredLogs)
+
+	if os.Getenv("VIBENEST_SYNTHETIC_FIXTURE") == "true" {
+		if cfg.IMAP.Host != "" || cfg.IMAP.Username != "" || cfg.IMAP.Password != "" || mcpMode || mcpHTTPAddr != "" || serveOnly {
+			return fmt.Errorf("synthetic fixture requires Maildir fetch mode without IMAP credentials or MCP")
+		}
+		if err := pilot.Seed(cfg.Maildir.Path); err != nil {
+			return fmt.Errorf("seed synthetic fixture: %w", err)
+		}
+	}
 
 	// Validate required IMAP configuration when fetching is enabled
 	// (not serve-only and not MCP mode)
