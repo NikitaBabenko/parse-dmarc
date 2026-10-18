@@ -4,7 +4,11 @@
 
 Independent deployment fork of [dmarcguardhq/parse-dmarc](https://github.com/dmarcguardhq/parse-dmarc), under the unchanged Apache-2.0 license. No upstream endorsement is implied.
 
-Status on 2026-10-18: prepared for a guided pilot. Production build, HTTPS acceptance, Free-tier measurements and persistence after replacement are **not verified**. The button opens a repository preview; manual configuration below is required before deployment.
+Status on 2026-10-18: **the small synthetic Maildir/API scenario passed on VibeNest Free**, at code revision `6bb48714f1bb34202b466d03a0a8a62b010b3392`. A production build, authenticated HTTPS report retrieval and preservation after one normal container replacement were verified. The button opens a repository preview; manual configuration below is required before deployment. This is not unattended one-click hosting.
+
+The report contained 10 fictional messages, 8 compliant (80%). Anonymous and invalid credentials returned 401 for the dashboard HTML, API and metrics; authenticated HTML, JS/CSS and report endpoints returned 200. Twenty sequential statistics requests succeeded. The rendered dashboard was not visually accepted: the available browser tool could not complete Basic Auth. Real mailbox ingestion, larger workloads and long-term stability remain unverified.
+
+Runtime evidence: actual memory limit 256 MB; platform sampled memory 2.64–4.24 MB across the observed initial/replacement window, while the application reported process RSS about 18.5–19.4 MiB at two checks (these are different measurements, not interchangeable peaks). No unexpected restarts were observed. Initial dispatch through build to successful deployment took about 6 min 38 s. Replacement used a new container, retained the identical SQLite report and found no new Maildir messages, demonstrating persistence without reseeding.
 
 ## Configure before starting
 
@@ -13,7 +17,7 @@ Status on 2026-10-18: prepared for a guided pilot. Production build, HTTPS accep
 - Persistent writable volume: mount `/data`. Keep `DATABASE_PATH=/data/parse-dmarc.db`. The scratch image has no shell; do not use a shell startup command.
 - Required secrets: `HTTP_AUTH_USER` (your chosen nonempty username, no colon) and `HTTP_AUTH_PASSWORD` (unique randomly generated password, at least 24 characters; recommended 32 random bytes encoded as hex). There is no default password. Configure these as runtime secrets, never Docker build arguments or committed files.
 - Only access the public endpoint over HTTPS. The browser's Basic Auth prompt protects the dashboard, static files, API, unknown routes and `/metrics`. Anonymous or invalid requests return 401, including OPTIONS. Only GET/HEAD `/healthz` is public, with an empty 200 response. Set the platform health path to `/healthz` if HTTP health probes are enabled.
-- `GOMEMLIMIT=180MiB`, `GOMAXPROCS=1` are conservative pilot settings, not proof that the app fits the plan. Target: 256 MB RAM, 0.5 platform CPU, 4 GB plan storage. Applied limits, CPU semantics, storage quota and memory peak still need runtime evidence.
+- `GOMEMLIMIT=180MiB`, `GOMAXPROCS=1` were used for the small pilot. Free catalog: 256 MB RAM, 0.5 platform CPU, 4 GB plan storage. The 256 MB memory limit was observed. The selected host used a CPU quota scale of 0.5, so 0.5 platform CPU corresponds to an expected 0.25 host CPU; the actual CPU cgroup quota was not independently inspected. A hard 4 GB storage quota and instantaneous memory peak were not verified.
 - Leave MCP mode and `PARSE_DMARC_MCP_HTTP` disabled/unset. This fork's middleware protects the dashboard HTTP server, not a separately configured MCP listener.
 - GitHub Actions on this fork are disabled to prevent inherited build/release workflows from consuming minutes.
 
