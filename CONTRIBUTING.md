@@ -45,7 +45,7 @@ docs/                METRICS.md, MCP.md
 just dev               # backend with live reload (air)
 just frontend-dev      # Vite dev server for the dashboard
 just test              # go test -v ./...
-docker compose up      # Dovecot on localhost:11143, user dmarc / dev, one report in INBOX
+docker compose -f compose.dev.yml up  # Dovecot on localhost:11143, user dmarc / dev, one report in INBOX
 go run . --config config.dev.json   # fetch from that fixture
 ```
 
@@ -66,3 +66,7 @@ In the order people ask: TLS-RPT reports (#154), whois on sending sources (#143)
 ## License
 
 Apache-2.0. By contributing you agree your contribution is licensed the same way.
+
+### Deployment fork image
+
+The original image build recipe is preserved at `deploy/vibenest/Dockerfile`. Build from the repository root with `docker build -f deploy/vibenest/Dockerfile .`. The root `compose.yml` runs the protected application and a named data volume; the upstream Dovecot development fixture is unchanged in `compose.dev.yml`. See [VIBENEST.md](VIBENEST.md) before running the deployment recipe.

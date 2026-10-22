@@ -5,7 +5,7 @@ services:
       mountPath: /data
       name: parse-dmarc-data
       sizeGB: 1
-    dockerfilePath: ./Dockerfile
+    dockerfilePath: ./deploy/vibenest/Dockerfile
     envVars:
       - key: PARSE_DMARC_CONFIG
         value: /app/config.json

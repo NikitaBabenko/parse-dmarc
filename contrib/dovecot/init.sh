@@ -13,7 +13,7 @@ SEEDED=/srv/mail/.seeded
 mkdir -p "${MAILROOT}/cur" "${MAILROOT}/new" "${MAILROOT}/tmp"
 
 # Sentinel keeps seeding idempotent: a restart must not re-deliver duplicates.
-# Wipe the volume (`docker compose down -v`) to re-seed from scratch.
+# Wipe the volume (`docker compose -f compose.dev.yml down -v`) to re-seed from scratch.
 if [ ! -f "${SEEDED}" ]; then
   n=0
   for f in /import/seed/*.eml; do

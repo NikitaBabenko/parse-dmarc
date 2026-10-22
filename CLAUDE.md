@@ -83,7 +83,7 @@ parse-dmarc/
 │   └── provisioning.yaml      # Auto-provisioning config
 ├── scripts/                   # Utility scripts
 ├── Justfile                   # Build commands
-├── Dockerfile                 # Multi-stage Docker build
+├── deploy/vibenest/Dockerfile # Multi-stage Docker build (context: repository root)
 ├── compose.yml                # Docker Compose for local dev
 ├── parse-dmarc.service        # systemd service file
 ├── zeabur.yml                 # Zeabur deployment template

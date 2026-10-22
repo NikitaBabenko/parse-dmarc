@@ -1,32 +1,28 @@
----
+# VibeNest single-service deployment. Local Dovecot fixture: compose.dev.yml.
+# HTTP_AUTH_PASSWORD is generated/persisted by VibeNest from .env.example.
+# For local Compose, supply your own unique password; there is no fallback secret.
 services:
-  # One-shot sidecar that prepares the Maildir skeleton on the shared
-  # `dovecot-mail` volume and seeds INBOX/new with the sample DMARC report(s)
-  # under ./contrib/dovecot/seed. Lives in its own service because the
-  # dovecot/dovecot image is too minimal to ship mkdir/cp/sed.
-  dovecot-init:
-    image: alpine:3.24
-    restart: on-failure
+  parse-dmarc:
+    build:
+      context: .
+      dockerfile: deploy/vibenest/Dockerfile
+    expose:
+      - "8080"
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "8080"
+      DATABASE_PATH: /data/parse-dmarc.db
+      MAILDIR_PATH: /data/maildir
+      HTTP_AUTH_USER: "${HTTP_AUTH_USER:-pilot-owner}"
+      HTTP_AUTH_PASSWORD: "${HTTP_AUTH_PASSWORD:?Set a unique HTTP_AUTH_PASSWORD of at least 24 characters}"
+      VIBENEST_SYNTHETIC_FIXTURE: "true"
+      FETCH_INTERVAL: "300"
+      PARSE_DMARC_SERVE_ONLY: "false"
+      PARSE_DMARC_METRICS: "true"
+      GOMEMLIMIT: 180MiB
+      GOMAXPROCS: "1"
     volumes:
-      - ./contrib/dovecot/init.sh:/init.sh:ro
-      - ./contrib/dovecot/seed:/import/seed:ro
-      - dovecot-mail:/srv/mail
-    entrypoint: ["/bin/sh", "/init.sh"]
-
-  # Local IMAP server (plain, cleartext — docker only) for exercising the
-  # fetch + parse pipeline. User dmarc:dev, INBOX served from the seeded
-  # volume. Reachable from the host on localhost:11143.
-  dovecot:
-    image: dovecot/dovecot:2.4.5
-    depends_on:
-      dovecot-init:
-        condition: service_completed_successfully
-    ports:
-      - "11143:143"
-    volumes:
-      - ./contrib/dovecot/dovecot.conf:/etc/dovecot/dovecot.conf:ro
-      - ./contrib/dovecot/users:/etc/dovecot/users:ro
-      - dovecot-mail:/srv/mail
+      - report-data:/data
 
 volumes:
-  dovecot-mail:
+  report-data:
