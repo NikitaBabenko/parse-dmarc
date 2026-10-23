@@ -1,0 +1,117 @@
+name: Publish reviewed VibeNest image
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+concurrency:
+  group: vibenest-reviewed-image
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'NikitaBabenko/parse-dmarc'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # Deliberately fixed: changing the application revision requires code review.
+      SOURCE_SHA: 8503fb1d97c6997f4c658db27b4c88050ee140c6
+      SOURCE_URL: https://github.com/NikitaBabenko/parse-dmarc
+      IMAGE: ghcr.io/nikitababenko/parse-dmarc
+    steps:
+      - name: Checkout reviewed workflow helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Checkout exact application source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: app
+          persist-credentials: false
+      - name: Verify source and mandatory Linux gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C app rev-parse HEAD)" = "$SOURCE_SHA"
+          test -z "$(git -C app status --porcelain)"
+          echo '31979a6e7a3e359cde799099cf122788a696ce16f54fb1b9d16cbef5885326fa  app/deploy/vibenest/Dockerfile' | sha256sum --check
+          test -f app/LICENSE
+          test -f app/internal/httpauth/auth.go
+          test -f app/internal/pilot/testdata/synthetic.eml
+      - name: Prepare standard runner tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends skopeo
+          docker buildx version
+          skopeo --version
+          docker buildx create --name reviewed-oci --driver docker-container --use
+          docker buildx inspect --bootstrap
+      - name: Build once with Linux auth and fixture tests into a local OCI archive
+        working-directory: app
+        shell: bash
+        env:
+          BUILDX_GIT_CHECK_DIRTY: 'true'
+        run: |
+          set -euo pipefail
+          # The unchanged Dockerfile RUN is a hard gate before the final image:
+          # GOMAXPROCS=1 go test -p 1 -count=1 -run
+          # 'TestOriginProtection|TestMissingOrInvalidCredentialsFailClosed|TestSeedOptInAndDoesNotOverwrite|TestSyntheticReportContent|TestVibeNest'
+          # ./internal/httpauth ./internal/pilot ./internal/api ./cmd/server
+          docker buildx build --builder reviewed-oci --platform linux/amd64 \
+            --pull --no-cache --progress plain --provenance=mode=min,version=v0.2 \
+            --file deploy/vibenest/Dockerfile \
+            --build-arg "COMMIT=$SOURCE_SHA" --build-arg 'BUILT_BY=github-actions' \
+            --label "org.opencontainers.image.source=$SOURCE_URL" \
+            --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+            --label 'org.opencontainers.image.licenses=Apache-2.0' \
+            --label "org.opencontainers.image.url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --tag "$IMAGE:sha-$SOURCE_SHA" \
+            --metadata-file "$RUNNER_TEMP/build-metadata.json" \
+            --output "type=oci,dest=$RUNNER_TEMP/reviewed-image.tar" .
+      - name: Verify OCI digest, configuration and source provenance before registry login
+        shell: bash
+        run: |
+          set -euo pipefail
+          skopeo inspect --raw "oci-archive:$RUNNER_TEMP/reviewed-image.tar" > "$RUNNER_TEMP/root-manifest.json"
+          python3 .github/scripts/verify_oci.py local \
+            "$RUNNER_TEMP/reviewed-image.tar" "$RUNNER_TEMP/root-manifest.json" \
+            "$SOURCE_SHA" "$SOURCE_URL" > "$RUNNER_TEMP/verified-image.json"
+          cat "$RUNNER_TEMP/verified-image.json"
+      - name: Publish the already verified archive without rebuilding
+        shell: bash
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          REGISTRY_AUTH_FILE: ${{ runner.temp }}/ghcr-auth.json
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$REGISTRY_AUTH_FILE"' EXIT
+          printf '%s' "$GHCR_TOKEN" | skopeo login --username "$GITHUB_ACTOR" --password-stdin ghcr.io
+          unset GHCR_TOKEN
+          skopeo copy --all --preserve-digests \
+            "oci-archive:$RUNNER_TEMP/reviewed-image.tar" "docker://$IMAGE:sha-$SOURCE_SHA"
+          digest=$(python3 -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"]+"/verified-image.json"))["indexDigest"])')
+          skopeo inspect --raw "docker://$IMAGE@$digest" > "$RUNNER_TEMP/published-manifest.json"
+          cmp "$RUNNER_TEMP/root-manifest.json" "$RUNNER_TEMP/published-manifest.json"
+          printf 'Published candidate: `%s@%s`\n\nSource: `%s`\n\nPublic access is not yet accepted.\n' "$IMAGE" "$digest" "$SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify anonymous manifest, config and provenance (no registry credentials)
+        shell: bash
+        run: |
+          set -euo pipefail
+          digest=$(python3 -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"]+"/verified-image.json"))["indexDigest"])')
+          if ! python3 .github/scripts/verify_oci.py public "$IMAGE" "$digest" "$SOURCE_SHA" "$SOURCE_URL"; then
+            echo '::error::Publication candidate is not anonymously verified. Inspect the exact GHCR package visibility/access; do not rebuild or broaden PAT scopes.'
+            echo 'Anonymous verification failed. If the new package is private, its owner must use Package settings > Change visibility > Public, then rerun ONLY the public verifier. Do not redispatch this build.' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo 'Anonymous digest/config/source/provenance verification passed. Deployment and Free acceptance remain separate.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove temporary registry credentials
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/ghcr-auth.json"
