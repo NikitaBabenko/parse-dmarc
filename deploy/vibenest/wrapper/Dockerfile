@@ -1,0 +1,1 @@
+FROM ghcr.io/nikitababenko/parse-dmarc@sha256:e73ce66d56e52a0b48f8f984344686090fc1cb8996958d854c904421ab2b6fef
